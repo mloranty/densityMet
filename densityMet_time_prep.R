@@ -25,19 +25,19 @@ f <- list.files(path = "csvRaw", full.names = T)
 # get list of start/end timestamps for all files
 #------------------------------------------------------------------#
 t <- read.csv(f[1], na.strings = "#N/A",skip = 3, header = F)
-ts <- c(f[1],t[1,1],t[nrow(t),1])
+s <- c(f[1],t[1,1],t[nrow(t),1])
 
 for(i in 2:length(f))
 {
   t <- read.csv(f[i], na.strings = "#N/A",skip = 3, header = F)
-  ts <- rbind(ts,c(f[i],t[1,1],t[nrow(t),1]))
+  s <- rbind(s,c(f[i],t[1,1],t[nrow(t),1]))
 }
 
-ts[,1] <- sub("csvRaw/","" ,ts[,1])
-ts[,1] <- sub(".csv","" ,ts[,1])
+#s[,1] <- sub("csvRaw/","" ,s[,1])
+#s[,1] <- sub(".csv","" ,s[,1])
 
-colnames(ts) <- c("filename", "Start", "End")
-write.csv(ts,file = "logger_file_timestamps.csv",row.names = F)
+colnames(s) <- c("filename", "Start", "End")
+write.csv(s,file = "logger_file_timestamps.csv",row.names = F)
 #------------------------------------------------------------------#
 
 # get logger and sensor metadata for each file

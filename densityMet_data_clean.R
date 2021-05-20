@@ -30,9 +30,12 @@ df <- "%m/%d/%y %R"
 # timezone for data
 z <- "Asia/Srednekolymsk"
 
-# PROCESS DATA FROM SITE MDF1
+# file with timestamp offsets for timezone issues
+to <- read.csv("time_offset.csv", header = T)
+
+# READ DATA FROM ALL SITES AND FIX TIME STAMP ISSUES
 #------------------------------------------------------------------#
-f <- list.files(path = "csvRaw", pattern = "mdf1", full.names = T)
+f <- list.files(path = "csvRaw", full.names = T)
 
 # read header info and data separately
 h <- read.csv(f[1], nrows = 3,header = F)
@@ -41,7 +44,15 @@ d <- read.csv(f[1], na.strings = "#N/A",skip = 3, header = F)
 # format time stamp info
 ts <- strptime(d[,1], format = df, tz = z)
 
-# create create a long data frame
+# correct timestamp based on offset info
+# offset is in hours multiply by 60 min x 60 sec and add to ts
+ ts <- ts+to$offset[match(f[1],to$filename)]*60*60
+ 
+ iflese(f[1]=="csvRaw/dav_usmet_201705181655.csv" & ts > as.POSIXct("2016-07-02 19:30"),
+        ts+(-9*60*60), # correct for erroneous time stamp issue in part of this particular file. 
+        ts+to$offset[match(f[1],to$filename)]*60*60) # otherwise use the known time offset
+ 
+# create a long data frame
 dat <- data.frame(ts,h[1,1],h[1,2],h[2,2],NA,h[3,2],d[,2])
 names(dat) <- c("timestamp","logger", "port", "sensor", "sensorZ","unit", "measurement")
 
@@ -62,6 +73,11 @@ for(i in 2:length(f))
   
   # format time stamp info
   ts <- strptime(d[,1], format = df, tz = z) 
+  
+  ts2 <- ifelse(f[1]=="csvRaw/dav_usmet_201705181655.csv" & ts > as.POSIXct("2016-07-02 19:30"),
+                ts+(-9*60*60), # correct for erroneous time stamp issue in part of this particular file. 
+                ts+(to$offset[match(f[1],to$filename)]*60*60)) # otherwise use the known time offset
+  ts2 <- ts+(to$offset[match(f[i],to$filename)]*60*60)
   
   for(j in 2:ncol(d))
   {
@@ -198,5 +214,8 @@ all.dat <- rbind(all.dat,dat)
 # so until this date Port 4 was the O/M sensor, but contact was poor and data were bad
 
 # HDF1 ifelse(dat$port == "Port 4" & dat$timestamp < as.POSIXct("2015-09-03 19:00"), -14, -19)
+
+
 # DAV ifelse(dat$port == "Port 4" & dat$timestamp < as.POSIXct("2015-09-04 17:00"), -15, -20)
-# 
+# also, for the 2016/17 file there was a double timestamp issue before 7/2/16 20:00 add 15 hrs to the timestamp
+# after that date/time subtract 9
