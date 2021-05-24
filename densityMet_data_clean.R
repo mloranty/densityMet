@@ -34,6 +34,7 @@ z <- "Asia/Srednekolymsk"
 to <- read.csv("time_offset.csv", header = T)
 
 # READ DATA FROM ALL SITES AND FIX TIME STAMP ISSUES
+# all affected files have specific offset exctept one from DAV
 #------------------------------------------------------------------#
 f <- list.files(path = "csvRaw", full.names = T)
 
