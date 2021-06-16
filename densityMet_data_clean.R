@@ -9,6 +9,7 @@
 
 library(lubridate)
 library(dplyr)
+library(tidyr)
 
 setwd("L:/data_repo/field_data/densityMet/")
 
@@ -21,7 +22,7 @@ setwd("L:/data_repo/field_data/densityMet/")
 #------------------------------------------------------------------#
 
 # list raw data files
-f <- list.files(path = "csvRaw", full.names = T)
+f <- list.files(path = "csvRaw",pattern = ".csv", full.names = T)
 
 # file with timestamp offsets for timezone issues
 to <- read.csv("time_offset.csv", header = T)
@@ -86,9 +87,13 @@ for(i in r)
   # format time stamp info
   ts <- strptime(d[,1], format = df, tz = z) 
   
+  # indicate if there is a timestamp formating issue in a file
+  if(length(which(is.na(ts == T))) > 0){print(paste(f[i], "has bad date formatting"))}
+  
   # correct timestamp based on offset info
   # offset is in hours multiply by 60 min x 60 sec and add to ts
   ts <- ts+to$offset[match(f[i],to$filename)]*60*60
+  
 
   # add each column to the data frame
   for(j in 2:ncol(d))
@@ -98,7 +103,7 @@ for(i in r)
     dat <- rbind(dat,td) 
   }
 }
-
+rm(i,r,j)
 #------------------------------------------------------------------#
 # set sensorZ values
 #------------------------------------------------------------------#
@@ -161,12 +166,41 @@ dat$sensorZ[r] <- -23
 r <- which(dat$logger =="LBRmet" & dat$port == "Port 3" & dat$timestamp > as.POSIXct("2015-09-03 16:30"))
 dat$sensorZ[r] <- -18
 
-# LBR 18cm data are no good before 2015-08-20 13:00
+
+# write all of the raw data to a csv file to have on hand
+write.csv(dat, file = paste("densityMet_all_dat_", Sys.Date(),".csv", sep = ""))
+#---------------------------------------------------------------------#
+# now clean data and write files for archiving at Arctic Data Center
+#---------------------------------------------------------------------#
+
+# LBR Soil Sensor
+# LBR -18cm data are no good before 2015-08-20 13:00 becuase the sensor had poor contact with the soil
+# so these data will be set to NA
+
+# identify the specific data records
+r <- which(dat$logger == "LBRmet" & dat$sensorZ == -18 & dat$timestamp < as.POSIXct("2015-08-20 13:00"))
+
+# set measurment values to NA
+dat$measurement[r] <- NA
+
+# Port5
+# remove data from Port 5
+# at several sites we tested soil water potential sensors, but these did not work in the organic soil
+
+# idenitfy port 5 data records
+r <- which(dat$port == "Port 5")
+
+# remove these records from the dataframe
+dat <- dat[-r,]
+
+# Soil moisture data
+# soil moisture measurements are invalid when soil is frozen
+# set soil temps to NA when soil temperature is less than zero
 
 
-#------------------------------------------------------------------#
-# now clean data and write files for archiving
-#------------------------------------------------------------------#
+datw = dat %>%
+  spread(logger, port, sensor, unit)
 
-# also, for the 2016/17 file there was a double timestamp issue before 7/2/16 20:00 add 15 hrs to the timestamp
-# after that date/time subtract 9
+# Error: Each row of output must be identified by a unique combination of keys.
+# Keys are shared for 12116 rows:
+#   * 207833, 311718
