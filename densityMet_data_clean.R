@@ -173,7 +173,6 @@ write.csv(dat, file = paste("densityMet_all_dat_", Sys.Date(),".csv", sep = ""),
 #---------------------------------------------------------------------#
 # clean data and write files for archiving at Arctic Data Center
 #---------------------------------------------------------------------#
-dat <- read.csv("densityMet_all_dat_2021-06-16.csv", header = T, row.names = F)
 #------------------------------
 # Duplicate Rows
 # On the loggers it is possible to download all stored data, or only new data recorded since the previous download
@@ -210,6 +209,8 @@ r <- which(dat$sensor == "Unknown Sensor (type 112)")
 
 # remove these records from the dataframe
 dat <- dat[-r,]
+
+dat <- na.omit(dat)
 #------------------------------
 # clean up columns for ADC archiving
 # make a site, and year, jday, hour, miniute columns
@@ -220,6 +221,11 @@ dat$site <- substr(dat$logger,1,4)
 dat$site <- gsub("DavU", "DAVY", dat$site)
 dat$site <- gsub("LBRm", "LBR", dat$site)
 
+# fix the units
+dat$unit <- gsub("°C Temp","Temp °C", dat$unit)
+dat$unit <- gsub(glob2rx("*VWC"), "m³/m³ VWC", dat$unit)
+#t <- gsub(glob2rx("m?s"), "m²s", t)
+
 # create columns with time info
 dat$year <- year(dat$timestamp)
 dat$doy <- yday(dat$timestamp)
@@ -227,7 +233,7 @@ dat$hour <- hour(dat$timestamp)
 dat$minute <- minute(dat$timestamp)
 
 # re-order columns
-dat <- dat[,c(1,9:12,8,2,3,4,5,7)]
+dat <- dat[,c(1,9:12,8,2,3,4,5,7,6)]
 
 #------------------------------
 # create a PAR data frame and write to file
@@ -241,7 +247,7 @@ write.csv(par, file = "dg_par.csv", row.names = F)
 
 #------------------------------
 # create an air temperature data frame and write to file
-tair <- dat[which(dat$sensor == "VP-3 Humidity/Temp" & dat$unit == "°C Temp"),]
+tair <- dat[which(dat$sensor == "VP-3 Humidity/Temp" & dat$unit == "Temp °C"),]
 
 # specify column name for par
 names(tair) <- gsub("measurement", "t_air", names(tair))
@@ -253,19 +259,44 @@ write.csv(tair, file = "dg_air_temperature.csv", row.names = F)
 # create a relative humidity data frame and write to file
 rh <- dat[which(dat$sensor == "VP-3 Humidity/Temp" & dat$unit == "RH"),]
 
-# specify column name for par
+# specify column name for rh
 names(rh) <- gsub("measurement", "rh", names(rh))
 
 # write to file
 write.csv(tair, file = "dg_relative_humidity.csv", row.names = F)
 
+#------------------------------
+# create an soil temperature data frame and write to file
+tsoil <- dat[which(dat$sensor == "5TM Moisture/Temp" & dat$unit == "Temp °C"),]
 
+# specify column name for soil temp
+names(tsoil) <- gsub("measurement", "t_soil", names(tsoil))
+
+# write to file
+write.csv(tsoil, file = "dg_soil_temperature.csv", row.names = F)
+
+#------------------------------
+# create an soil moiature data frame and write to file
+msoil <- dat[which(dat$sensor == "5TM Moisture/Temp" & dat$unit == "m³/m³ VWC"),]
+
+# specify column name for soil moisture
+names(msoil) <- gsub("measurement", "m_soil", names(msoil))
+
+msoil <- merge(msoil,tsoil, by = intersect(names(msoil), names(tsoil))[1:10])
+
+z <- which(msoil$t_soil < 0)
+msoil$m_soil[z] <- NA
+
+# write to file
+write.csv(msoil, file = "dg_soil_moisture.csv", row.names = F)
 # Soil moisture data
 # soil moisture measurements are invalid when soil is frozen
 # set soil temps to NA when soil temperature is less than zero
 
 
 
+########################################
+#junk
 
 datw = dat %>%
   spread(logger, port, sensor, unit)
