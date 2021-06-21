@@ -73,7 +73,7 @@ for(i in 3:ncol(d))
 
 rm(i,r,s)
 #------------------------------------------------------------------#
-# now add in the rest of the data
+# read and add in the rest of the data
 #------------------------------------------------------------------#
 # create a sequence without the file processed above
 r <- which(f !="csvRaw/dav_usmet_201705181655.csv")
@@ -168,11 +168,19 @@ dat$sensorZ[r] <- -18
 
 
 # write all of the raw data to a csv file to have on hand
-write.csv(dat, file = paste("densityMet_all_dat_", Sys.Date(),".csv", sep = ""))
-#---------------------------------------------------------------------#
-# now clean data and write files for archiving at Arctic Data Center
-#---------------------------------------------------------------------#
+write.csv(dat, file = paste("densityMet_all_dat_", Sys.Date(),".csv", sep = ""), row.names = F)
 
+#---------------------------------------------------------------------#
+# clean data and write files for archiving at Arctic Data Center
+#---------------------------------------------------------------------#
+dat <- read.csv("densityMet_all_dat_2021-06-16.csv", header = T, row.names = F)
+#------------------------------
+# Duplicate Rows
+# On the loggers it is possible to download all stored data, or only new data recorded since the previous download
+# Accidentally downloading all data has results in a few duplicate records that we can omit
+dat <- distinct(dat)
+
+#------------------------------
 # LBR Soil Sensor
 # LBR -18cm data are no good before 2015-08-20 13:00 becuase the sensor had poor contact with the soil
 # so these data will be set to NA
@@ -183,6 +191,7 @@ r <- which(dat$logger == "LBRmet" & dat$sensorZ == -18 & dat$timestamp < as.POSI
 # set measurment values to NA
 dat$measurement[r] <- NA
 
+#------------------------------
 # Port5
 # remove data from Port 5
 # at several sites we tested soil water potential sensors, but these did not work in the organic soil
@@ -193,14 +202,77 @@ r <- which(dat$port == "Port 5")
 # remove these records from the dataframe
 dat <- dat[-r,]
 
+#------------------------------
+# Unknown sensor
+# apparent problem reading Port 2 sensor (VP-3) in 2020
+# omit data
+r <- which(dat$sensor == "Unknown Sensor (type 112)")
+
+# remove these records from the dataframe
+dat <- dat[-r,]
+#------------------------------
+# clean up columns for ADC archiving
+# make a site, and year, jday, hour, miniute columns
+
+# create a column with site names by stripping info from logger name
+dat$site <- substr(dat$logger,1,4)
+
+dat$site <- gsub("DavU", "DAVY", dat$site)
+dat$site <- gsub("LBRm", "LBR", dat$site)
+
+# create columns with time info
+dat$year <- year(dat$timestamp)
+dat$doy <- yday(dat$timestamp)
+dat$hour <- hour(dat$timestamp)
+dat$minute <- minute(dat$timestamp)
+
+# re-order columns
+dat <- dat[,c(1,9:12,8,2,3,4,5,7)]
+
+#------------------------------
+# create a PAR data frame and write to file
+par <- dat[which(dat$sensor == "QSO-S PAR Photon Flux"),]
+
+# specify column name for par
+names(par) <- gsub("measurement", "par", names(par))
+
+# write to file
+write.csv(par, file = "dg_par.csv", row.names = F)
+
+#------------------------------
+# create an air temperature data frame and write to file
+tair <- dat[which(dat$sensor == "VP-3 Humidity/Temp" & dat$unit == "°C Temp"),]
+
+# specify column name for par
+names(tair) <- gsub("measurement", "t_air", names(tair))
+
+# write to file
+write.csv(tair, file = "dg_air_temperature.csv", row.names = F)
+
+#------------------------------
+# create a relative humidity data frame and write to file
+rh <- dat[which(dat$sensor == "VP-3 Humidity/Temp" & dat$unit == "RH"),]
+
+# specify column name for par
+names(rh) <- gsub("measurement", "rh", names(rh))
+
+# write to file
+write.csv(tair, file = "dg_relative_humidity.csv", row.names = F)
+
+
 # Soil moisture data
 # soil moisture measurements are invalid when soil is frozen
 # set soil temps to NA when soil temperature is less than zero
 
 
+
+
 datw = dat %>%
   spread(logger, port, sensor, unit)
 
-# Error: Each row of output must be identified by a unique combination of keys.
-# Keys are shared for 12116 rows:
-#   * 207833, 311718
+pivot_wider(dat,values_from = measurement, names_from = sensorZ)
+
+#---------------------------------------------------------------------#
+# now clean data and write files for archiving at Arctic Data Center
+#---------------------------------------------------------------------#
+Unknown Sensor (type 112)
