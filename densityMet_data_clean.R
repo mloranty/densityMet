@@ -263,7 +263,7 @@ rh <- dat[which(dat$sensor == "VP-3 Humidity/Temp" & dat$unit == "RH"),]
 names(rh) <- gsub("measurement", "rh", names(rh))
 
 # write to file
-write.csv(tair, file = "dg_relative_humidity.csv", row.names = F)
+write.csv(rh, file = "dg_relative_humidity.csv", row.names = F)
 
 #------------------------------
 # create an soil temperature data frame and write to file
@@ -287,23 +287,14 @@ msoil <- merge(msoil,tsoil, by = intersect(names(msoil), names(tsoil))[1:10])
 z <- which(msoil$t_soil < 0)
 msoil$m_soil[z] <- NA
 
+msoil <- msoil[,1:12]
+names(msoil) <- gsub("unit.x", "unit", names(msoil))
+
 # write to file
 write.csv(msoil, file = "dg_soil_moisture.csv", row.names = F)
-# Soil moisture data
-# soil moisture measurements are invalid when soil is frozen
-# set soil temps to NA when soil temperature is less than zero
+
+#------------------------------
 
 
 
-########################################
-#junk
 
-datw = dat %>%
-  spread(logger, port, sensor, unit)
-
-pivot_wider(dat,values_from = measurement, names_from = sensorZ)
-
-#---------------------------------------------------------------------#
-# now clean data and write files for archiving at Arctic Data Center
-#---------------------------------------------------------------------#
-Unknown Sensor (type 112)
